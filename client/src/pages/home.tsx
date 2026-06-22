@@ -97,6 +97,12 @@ export default function Home() {
 
   const handleFileSelect = useCallback(
     (selectedFile: File) => {
+      // Clear previous file state
+      setFile(null);
+      setStartTime(0);
+      setEndTime(0);
+      setDuration(0);
+
       if (!isMediaFile(selectedFile)) {
         toast({
           title: "Unsupported file",
@@ -106,9 +112,6 @@ export default function Home() {
         return;
       }
       setFile(selectedFile);
-      setStartTime(0);
-      setEndTime(0);
-      setDuration(0);
 
       // For video files, get duration
       if (isVideoFile(selectedFile)) {
