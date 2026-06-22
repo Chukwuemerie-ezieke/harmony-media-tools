@@ -7,8 +7,14 @@ A free, privacy-first in-browser media converter and editor by **Harmony Digital
 ## Features
 
 - **Format Converter** — Convert between video formats (MP4, WebM, AVI, MKV, MOV, GIF) and audio formats (MP3, WAV, AAC, OGG, FLAC, M4A)
+- **Video Compression** — Resize resolution and lower CRF to reduce file sizes
+- **Crop & Rotate** — 1:1, 16:9, 9:16 aspect ratio presets and 90/180-degree rotations
 - **Audio Extraction** — Pull audio tracks from any video file
 - **Video/Audio Trimming** — Cut files to precise start and end times
+- **Audio FX** — Boost volume (up to 200%) and apply 2s fade-ins/fade-outs
+- **GIF Maker** — Convert video to GIF with customizable framerate
+- **File Merging** — Concatenate multiple media files of similar codecs together
+- **Progressive Web App (PWA)** — Installable to desktop/mobile and works completely offline
 - **Dark/Light Theme** — Automatic system detection with manual toggle
 
 ## Privacy & Security
