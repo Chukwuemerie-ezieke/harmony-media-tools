@@ -76,6 +76,7 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState("convert");
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [outputFormat, setOutputFormat] = useState("mp4");
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -84,10 +85,20 @@ export default function Home() {
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [durations, setDurations] = useState<Record<string, number>>({});
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Audio extract state
   const [audioFormat, setAudioFormat] = useState("mp3");
+  const [targetScale, setTargetScale] = useState<string>("default");
+  const [targetQuality, setTargetQuality] = useState<string>("23"); // CRF
+  const [cropRatio, setCropRatio] = useState<string>("default");
+  const [rotate, setRotate] = useState<string>("default");
+  const [volume, setVolume] = useState(1);
+  const [fadeIn, setFadeIn] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
+  const [gifFps, setGifFps] = useState(10);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,46 +106,44 @@ export default function Home() {
   const isAudioFile = (f: File) => f.type.startsWith("audio/");
   const isMediaFile = (f: File) => isVideoFile(f) || isAudioFile(f);
 
+
   const handleFileSelect = useCallback(
-    (selectedFile: File) => {
-      if (!isMediaFile(selectedFile)) {
+    (selectedFiles: FileList | File[] | File) => {
+      const fileArray = selectedFiles instanceof File ? [selectedFiles] : Array.from(selectedFiles);
+      const validFiles = fileArray.filter(isMediaFile);
+
+      if (validFiles.length === 0) {
         toast({
           title: "Unsupported file",
-          description: "Please select a video or audio file.",
+          description: "Please select valid video or audio files.",
           variant: "destructive",
         });
         return;
       }
-      setFile(selectedFile);
-      setStartTime(0);
-      setEndTime(0);
-      setDuration(0);
 
-      // For video files, get duration
-      if (isVideoFile(selectedFile)) {
-        const url = URL.createObjectURL(selectedFile);
-        const v = document.createElement("video");
-        v.preload = "metadata";
-        v.onloadedmetadata = () => {
-          setDuration(v.duration);
-          setEndTime(v.duration);
-          URL.revokeObjectURL(url);
-        };
-        v.src = url;
-      } else if (isAudioFile(selectedFile)) {
-        const url = URL.createObjectURL(selectedFile);
-        const a = document.createElement("audio");
-        a.preload = "metadata";
-        a.onloadedmetadata = () => {
-          setDuration(a.duration);
-          setEndTime(a.duration);
-          URL.revokeObjectURL(url);
-        };
-        a.src = url;
-      }
+      setFile(validFiles[0]); // keep legacy state for non-merge tabs
+      setFiles((prev) => activeTab === 'merge' ? [...prev, ...validFiles] : [validFiles[0]]);
+
+      validFiles.forEach(f => {
+        if (isVideoFile(f) || isAudioFile(f)) {
+          const url = URL.createObjectURL(f);
+          const media = document.createElement(isVideoFile(f) ? "video" : "audio");
+          media.preload = "metadata";
+          media.onloadedmetadata = () => {
+             setDurations(prev => ({...prev, [f.name]: media.duration}));
+             if (activeTab !== 'merge' && f === validFiles[0]) {
+               setDuration(media.duration);
+               setStartTime(0);
+               setEndTime(media.duration);
+             }
+          };
+          media.src = url;
+        }
+      });
     },
-    [toast]
+    [toast, activeTab]
   );
+
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -201,12 +210,19 @@ export default function Home() {
     load();
   }, [load]);
 
+
   const tabConfig = [
     { id: "convert", label: "Convert", icon: ArrowRightLeft },
     { id: "extract", label: "Extract Audio", icon: Music },
     { id: "trim", label: "Trim", icon: Scissors },
+    { id: "compress", label: "Compress", icon: ArrowRightLeft },
+    { id: "crop", label: "Crop/Rotate", icon: Scissors },
+    { id: "audiofx", label: "Audio FX", icon: Music },
+    { id: "gif", label: "GIF", icon: FileVideo },
+    { id: "merge", label: "Merge", icon: Link2 },
     { id: "about", label: "About", icon: Info },
   ];
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -259,7 +275,7 @@ export default function Home() {
           <h1 className="text-xl font-bold tracking-tight mb-2">
             Media Converter & Editor
           </h1>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+          <p className="text-sm text-muted-foreground max-w-5xl mx-auto">
             Convert video and audio formats, extract audio tracks, and trim clips — all
             processed directly in your browser. No uploads, no servers, completely private.
           </p>
@@ -271,7 +287,7 @@ export default function Home() {
           onValueChange={setActiveTab}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-4 w-full max-w-lg mx-auto mb-6" data-testid="tabs-navigation">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 w-full max-w-5xl mx-auto mb-6" data-testid="tabs-navigation">
             {tabConfig.map(({ id, label, icon: Icon }) => (
               <TabsTrigger
                 key={id}
@@ -313,20 +329,19 @@ export default function Home() {
                 >
                   <input
                     ref={fileInputRef}
-                    type="file"
+                    type="file" multiple={activeTab === "merge"}
                     accept="video/*,audio/*"
                     className="hidden"
                     onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleFileSelect(f);
+                      if (e.target.files) handleFileSelect(e.target.files);
                     }}
                     data-testid="input-file"
                   />
 
-                  {file ? (
+                  {files.length > 0 ? (
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                        {isVideoFile(file) ? (
+                        {(file && isVideoFile(file)) ? (
                           <FileVideo className="w-6 h-6 text-primary" />
                         ) : (
                           <FileAudio className="w-6 h-6 text-secondary" />
@@ -334,10 +349,10 @@ export default function Home() {
                       </div>
                       <div className="text-center">
                         <p className="text-sm font-medium truncate max-w-xs" data-testid="text-filename">
-                          {file.name}
+                          {files.length === 1 && file ? file.name : `${files.length} files selected`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatFileSize(file.size)}
+                          {files.length === 1 && file ? formatFileSize(file.size) : ""}
                           {duration > 0 && ` · ${formatTime(duration)}`}
                         </p>
                       </div>
@@ -346,8 +361,7 @@ export default function Home() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setFile(null);
-                          setDuration(0);
+                          setFile(null); setFiles([]); setDuration(0); setDurations({});
                         }}
                         className="text-xs text-muted-foreground"
                         data-testid="button-remove-file"
@@ -436,11 +450,297 @@ export default function Home() {
             </Card>
           </TabsContent>
 
+          {/* COMPRESS TAB */}
+          <TabsContent value="compress" className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Output Format</label>
+              <Select value={outputFormat} onValueChange={setOutputFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VIDEO_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt} value={fmt}>
+                      .{fmt.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target Resolution (Scale)</label>
+              <Select value={targetScale} onValueChange={setTargetScale}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Keep Original</SelectItem>
+                  <SelectItem value="1920:1080">1080p</SelectItem>
+                  <SelectItem value="1280:720">720p</SelectItem>
+                  <SelectItem value="854:480">480p</SelectItem>
+                  <SelectItem value="iw/2:ih/2">Half Size</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quality Level</label>
+              <Select value={targetQuality} onValueChange={setTargetQuality}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="18">High Quality (Larger file)</SelectItem>
+                  <SelectItem value="23">Medium Quality</SelectItem>
+                  <SelectItem value="28">Low Quality (Smaller file)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* CROP & ROTATE TAB */}
+          <TabsContent value="crop" className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Output Format</label>
+              <Select value={outputFormat} onValueChange={setOutputFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VIDEO_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt} value={fmt}>
+                      .{fmt.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Crop Ratio (Center Crop)</label>
+              <Select value={cropRatio} onValueChange={setCropRatio}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">None</SelectItem>
+                  <SelectItem value="ih:ih">1:1 (Square - Instagram)</SelectItem>
+                  <SelectItem value="ih*(9/16):ih">9:16 (Vertical - TikTok/Reels)</SelectItem>
+                  <SelectItem value="iw:iw*(9/16)">16:9 (Horizontal - YouTube)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rotate</label>
+              <Select value={rotate} onValueChange={setRotate}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">None</SelectItem>
+                  <SelectItem value="1">90° Clockwise</SelectItem>
+                  <SelectItem value="2">180°</SelectItem>
+                  <SelectItem value="0">90° Counter-Clockwise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* AUDIO FX TAB */}
+          <TabsContent value="audiofx" className="mt-6 space-y-4">
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Volume Boost: {Math.round(volume * 100)}%</label>
+              </div>
+              <Slider
+                value={[volume]}
+                min={0}
+                max={2}
+                step={0.1}
+                onValueChange={([v]) => setVolume(v)}
+              />
+            </div>
+
+            <div className="flex gap-4 mt-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={fadeIn} onChange={e => setFadeIn(e.target.checked)} className="rounded border-input bg-background"/>
+                <span className="text-sm">Fade In (2s)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={fadeOut} onChange={e => setFadeOut(e.target.checked)} className="rounded border-input bg-background"/>
+                <span className="text-sm">Fade Out (2s)</span>
+              </label>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* GIF MAKER TAB */}
+          <TabsContent value="gif" className="mt-6 space-y-4">
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Frame Rate (FPS): {gifFps}</label>
+              </div>
+              <Slider
+                value={[gifFps]}
+                min={5}
+                max={30}
+                step={1}
+                onValueChange={([v]) => setGifFps(v)}
+              />
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* MERGE TAB */}
+          <TabsContent value="merge" className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Output Format</label>
+              <Select value={outputFormat} onValueChange={setOutputFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt} value={fmt}>
+                      .{fmt.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
+              Ensure files are of the same resolution and codecs for best results.
+              Currently selecting {files.length} files.
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+
           {/* Extract Audio Tab */}
           <TabsContent value="extract">
             <Card>
               <CardContent className="p-6">
-                {file && !isVideoFile(file) ? (
+                {file && !(file && isVideoFile(file)) ? (
                   <div className="text-center py-4">
                     <p className="text-sm text-muted-foreground">
                       Please select a video file to extract audio from.
@@ -468,7 +768,7 @@ export default function Home() {
 
                     <Button
                       onClick={handleProcess}
-                      disabled={!file || processing || (file ? !isVideoFile(file) : true)}
+                      disabled={!file || processing || (file ? !(file && isVideoFile(file)) : true)}
                       className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-secondary-foreground"
                       data-testid="button-extract"
                     >
@@ -501,7 +801,7 @@ export default function Home() {
                 {file && duration > 0 ? (
                   <div className="space-y-5">
                     {/* Video Preview */}
-                    {isVideoFile(file) && (
+                    {(file && isVideoFile(file)) && (
                       <div className="rounded-lg overflow-hidden bg-black/5 dark:bg-white/5">
                         <video
                           ref={videoRef}
@@ -593,6 +893,291 @@ export default function Home() {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* COMPRESS TAB */}
+          <TabsContent value="compress" className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Output Format</label>
+              <Select value={outputFormat} onValueChange={setOutputFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VIDEO_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt} value={fmt}>
+                      .{fmt.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target Resolution (Scale)</label>
+              <Select value={targetScale} onValueChange={setTargetScale}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Keep Original</SelectItem>
+                  <SelectItem value="1920:1080">1080p</SelectItem>
+                  <SelectItem value="1280:720">720p</SelectItem>
+                  <SelectItem value="854:480">480p</SelectItem>
+                  <SelectItem value="iw/2:ih/2">Half Size</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quality Level</label>
+              <Select value={targetQuality} onValueChange={setTargetQuality}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="18">High Quality (Larger file)</SelectItem>
+                  <SelectItem value="23">Medium Quality</SelectItem>
+                  <SelectItem value="28">Low Quality (Smaller file)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* CROP & ROTATE TAB */}
+          <TabsContent value="crop" className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Output Format</label>
+              <Select value={outputFormat} onValueChange={setOutputFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VIDEO_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt} value={fmt}>
+                      .{fmt.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Crop Ratio (Center Crop)</label>
+              <Select value={cropRatio} onValueChange={setCropRatio}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">None</SelectItem>
+                  <SelectItem value="ih:ih">1:1 (Square - Instagram)</SelectItem>
+                  <SelectItem value="ih*(9/16):ih">9:16 (Vertical - TikTok/Reels)</SelectItem>
+                  <SelectItem value="iw:iw*(9/16)">16:9 (Horizontal - YouTube)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rotate</label>
+              <Select value={rotate} onValueChange={setRotate}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">None</SelectItem>
+                  <SelectItem value="1">90° Clockwise</SelectItem>
+                  <SelectItem value="2">180°</SelectItem>
+                  <SelectItem value="0">90° Counter-Clockwise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* AUDIO FX TAB */}
+          <TabsContent value="audiofx" className="mt-6 space-y-4">
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Volume Boost: {Math.round(volume * 100)}%</label>
+              </div>
+              <Slider
+                value={[volume]}
+                min={0}
+                max={2}
+                step={0.1}
+                onValueChange={([v]) => setVolume(v)}
+              />
+            </div>
+
+            <div className="flex gap-4 mt-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={fadeIn} onChange={e => setFadeIn(e.target.checked)} className="rounded border-input bg-background"/>
+                <span className="text-sm">Fade In (2s)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={fadeOut} onChange={e => setFadeOut(e.target.checked)} className="rounded border-input bg-background"/>
+                <span className="text-sm">Fade Out (2s)</span>
+              </label>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* GIF MAKER TAB */}
+          <TabsContent value="gif" className="mt-6 space-y-4">
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Frame Rate (FPS): {gifFps}</label>
+              </div>
+              <Slider
+                value={[gifFps]}
+                min={5}
+                max={30}
+                step={1}
+                onValueChange={([v]) => setGifFps(v)}
+              />
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* MERGE TAB */}
+          <TabsContent value="merge" className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Output Format</label>
+              <Select value={outputFormat} onValueChange={setOutputFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt} value={fmt}>
+                      .{fmt.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
+              Ensure files are of the same resolution and codecs for best results.
+              Currently selecting {files.length} files.
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
 
           {/* About Tab */}
           <TabsContent value="about">

@@ -77,6 +77,11 @@ export function useFFmpeg() {
         const audioFormats = ["mp3", "wav", "aac", "ogg", "flac", "m4a", "wma"];
         const isAudioOutput = audioFormats.includes(outputFormat);
 
+        // Add faststart to mp4 for better web playback
+        if (outputFormat === "mp4") {
+          args.push("-movflags", "faststart");
+        }
+
         if (isAudioOutput) {
           args.push("-vn"); // No video for audio outputs
           if (outputFormat === "mp3") {
