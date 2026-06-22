@@ -210,12 +210,19 @@ export default function Home() {
     load();
   }, [load]);
 
+
   const tabConfig = [
     { id: "convert", label: "Convert", icon: ArrowRightLeft },
     { id: "extract", label: "Extract Audio", icon: Music },
     { id: "trim", label: "Trim", icon: Scissors },
+    { id: "compress", label: "Compress", icon: ArrowRightLeft },
+    { id: "crop", label: "Crop/Rotate", icon: Scissors },
+    { id: "audiofx", label: "Audio FX", icon: Music },
+    { id: "gif", label: "GIF", icon: FileVideo },
+    { id: "merge", label: "Merge", icon: Link2 },
     { id: "about", label: "About", icon: Info },
   ];
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -268,7 +275,7 @@ export default function Home() {
           <h1 className="text-xl font-bold tracking-tight mb-2">
             Media Converter & Editor
           </h1>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+          <p className="text-sm text-muted-foreground max-w-5xl mx-auto">
             Convert video and audio formats, extract audio tracks, and trim clips — all
             processed directly in your browser. No uploads, no servers, completely private.
           </p>
@@ -280,7 +287,7 @@ export default function Home() {
           onValueChange={setActiveTab}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-4 w-full max-w-lg mx-auto mb-6" data-testid="tabs-navigation">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 w-full max-w-5xl mx-auto mb-6" data-testid="tabs-navigation">
             {tabConfig.map(({ id, label, icon: Icon }) => (
               <TabsTrigger
                 key={id}
