@@ -497,6 +497,30 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* CROP & ROTATE TAB */}
@@ -546,6 +570,30 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* AUDIO FX TAB */}
@@ -573,6 +621,30 @@ export default function Home() {
                 <span className="text-sm">Fade Out (2s)</span>
               </label>
             </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* GIF MAKER TAB */}
@@ -588,6 +660,30 @@ export default function Home() {
                 step={1}
                 onValueChange={([v]) => setGifFps(v)}
               />
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -612,6 +708,30 @@ export default function Home() {
             <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
               Ensure files are of the same resolution and codecs for best results.
               Currently selecting {files.length} files.
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -820,6 +940,30 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* CROP & ROTATE TAB */}
@@ -869,6 +1013,30 @@ export default function Home() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* AUDIO FX TAB */}
@@ -896,6 +1064,30 @@ export default function Home() {
                 <span className="text-sm">Fade Out (2s)</span>
               </label>
             </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* GIF MAKER TAB */}
@@ -911,6 +1103,30 @@ export default function Home() {
                 step={1}
                 onValueChange={([v]) => setGifFps(v)}
               />
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -935,6 +1151,30 @@ export default function Home() {
             <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
               Ensure files are of the same resolution and codecs for best results.
               Currently selecting {files.length} files.
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                onClick={handleProcess}
+                disabled={files.length === 0 || processing}
+                className="w-full"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {processing ? "Processing..." : "Start Processing"}
+              </Button>
+
+              {processing && (
+                <div className="space-y-2 mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {message}
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
