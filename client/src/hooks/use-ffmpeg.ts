@@ -2,6 +2,23 @@ import { useState, useRef, useCallback } from "react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
+export interface FFmpegOptions {
+  startTime?: number;
+  endTime?: number;
+  audioOnly?: boolean;
+  preset?: string; // e.g., 'whatsapp', 'classroom', 'podcast'
+  compression?: "high" | "balanced" | "smallest";
+  audioFx?: {
+    volume?: number;
+    fadeIn?: number;
+    fadeOut?: number;
+    mono?: boolean;
+  };
+  cropRatio?: string;
+  rotate?: string;
+  gifFps?: number;
+}
+
 export function useFFmpeg() {
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -46,7 +63,7 @@ export function useFFmpeg() {
     async (
       file: File,
       outputFormat: string,
-      options?: { startTime?: number; endTime?: number; audioOnly?: boolean }
+      options?: FFmpegOptions
     ): Promise<{ blob: Blob; filename: string } | null> => {
       const ffmpeg = ffmpegRef.current;
       if (!ffmpeg) return null;
@@ -71,6 +88,67 @@ export function useFFmpeg() {
         }
         if (options?.audioOnly) {
           args.push("-vn");
+        }
+
+        // Apply visual effects like rotation or crop
+        const vfilters = [];
+        if (options?.cropRatio && options.cropRatio !== "default") {
+          vfilters.push(`crop=${options.cropRatio}`);
+        }
+        if (options?.rotate && options.rotate !== "default") {
+          if (options.rotate === "1") vfilters.push("transpose=1"); // 90 clockwise
+          if (options.rotate === "2") vfilters.push("transpose=2,transpose=2"); // 180
+          if (options.rotate === "0") vfilters.push("transpose=2"); // 90 counter-clockwise
+        }
+
+        // Apply audio effects
+        const afilters = [];
+        if (options?.audioFx) {
+          const fx = options.audioFx;
+          if (fx.volume !== undefined && fx.volume !== 1) {
+            afilters.push(`volume=${fx.volume}`);
+          }
+          if (fx.fadeIn && fx.fadeIn > 0) {
+            afilters.push(`afade=t=in:ss=0:d=${fx.fadeIn}`);
+          }
+          if (fx.fadeOut && fx.fadeOut > 0 && options.endTime) {
+             // We need to know the end time or duration to do fadeOut accurately.
+             // If we have an endTime, we use that. If not, it's harder to do without knowing duration.
+             afilters.push(`afade=t=out:st=${options.endTime - fx.fadeOut}:d=${fx.fadeOut}`);
+          }
+        }
+
+        if (options?.preset === "whatsapp") {
+          vfilters.push("scale=-2:480"); // Downscale to 480p width-proportional
+          args.push("-crf", "30", "-preset", "fast");
+        } else if (options?.preset === "classroom") {
+           vfilters.push("scale=-2:1080");
+           args.push("-crf", "23", "-preset", "medium");
+        } else if (options?.preset === "submission") {
+          vfilters.push("scale=-2:720");
+          args.push("-crf", "28", "-preset", "fast");
+        } else {
+           if (options?.compression === "smallest") {
+              vfilters.push("scale=-2:480");
+              args.push("-crf", "35", "-preset", "veryfast");
+           } else if (options?.compression === "balanced") {
+              vfilters.push("scale=-2:720");
+              args.push("-crf", "28", "-preset", "fast");
+           } else if (options?.compression === "high") {
+              args.push("-crf", "20", "-preset", "medium");
+           }
+        }
+
+        if (vfilters.length > 0 && !options?.audioOnly && outputFormat !== "gif") {
+           args.push("-vf", vfilters.join(","));
+        }
+
+        if (afilters.length > 0) {
+           args.push("-af", afilters.join(","));
+        }
+
+        if (options?.audioFx?.mono) {
+           args.push("-ac", "1");
         }
 
         // Format-specific encoding
@@ -98,22 +176,28 @@ export function useFFmpeg() {
         } else {
           // Video outputs
           if (outputFormat === "mp4") {
-            args.push("-codec:v", "libx264", "-preset", "fast", "-crf", "23");
+            args.push("-codec:v", "libx264");
+            if(!args.includes("-preset")) args.push("-preset", "fast");
+            if(!args.includes("-crf")) args.push("-crf", "23");
             args.push("-codec:a", "aac", "-b:a", "128k");
           } else if (outputFormat === "webm") {
-            args.push("-codec:v", "libvpx", "-crf", "30", "-b:v", "0");
+            args.push("-codec:v", "libvpx");
+            if(!args.includes("-crf")) args.push("-crf", "30", "-b:v", "0");
             args.push("-codec:a", "libvorbis");
           } else if (outputFormat === "avi") {
             args.push("-codec:v", "mpeg4", "-q:v", "5");
             args.push("-codec:a", "libmp3lame", "-q:a", "4");
           } else if (outputFormat === "mkv") {
-            args.push("-codec:v", "libx264", "-preset", "fast", "-crf", "23");
+            args.push("-codec:v", "libx264");
+            if(!args.includes("-preset")) args.push("-preset", "fast");
+            if(!args.includes("-crf")) args.push("-crf", "23");
             args.push("-codec:a", "aac", "-b:a", "128k");
           } else if (outputFormat === "mov") {
             args.push("-codec:v", "libx264", "-preset", "fast");
             args.push("-codec:a", "aac");
           } else if (outputFormat === "gif") {
-            args.push("-vf", "fps=10,scale=480:-1:flags=lanczos");
+            const fps = options?.gifFps || 10;
+            args.push("-vf", `fps=${fps},scale=480:-1:flags=lanczos`);
           }
         }
 

@@ -9,6 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useFFmpeg } from "@/hooks/use-ffmpeg";
 import { useTheme } from "@/hooks/use-theme";
+import { QueueItem } from "@/lib/types";
+import { getMediaMetadata } from "@/lib/media";
+import { FFmpegOptions } from "@/hooks/use-ffmpeg";
+import { Presets } from "@/components/presets";
+import { QueueList } from "@/components/queue-list";
 import {
   ArrowRightLeft,
   Music,
@@ -77,6 +82,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("convert");
   const [file, setFile] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
+  const [compressionProfile, setCompressionProfile] = useState<"high" | "balanced" | "smallest">("balanced");
   const [outputFormat, setOutputFormat] = useState("mp4");
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -156,53 +165,92 @@ export default function Home() {
   );
 
   const handleProcess = async () => {
-    if (!file) return;
-
-    if (!loaded) {
-      await load();
-    }
-
+    if (queue.length === 0) return;
     setProcessing(true);
 
-    try {
-      let result: { blob: Blob; filename: string } | null = null;
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i];
+      if (item.status === 'done' || item.status === 'processing') continue;
 
-      if (activeTab === "convert") {
-        result = await convertFile(file, outputFormat);
-      } else if (activeTab === "extract") {
-        result = await convertFile(file, audioFormat, { audioOnly: true });
-      } else if (activeTab === "trim") {
-        const ext = file.name.split(".").pop() || "mp4";
-        result = await convertFile(file, ext, {
-          startTime,
-          endTime,
-        });
+      setQueue(q => q.map((qItem, idx) => idx === i ? { ...qItem, status: 'processing' } : qItem));
+
+      try {
+        const options: FFmpegOptions = {};
+        let finalOutputFormat = outputFormat;
+
+        if (activeTab === "convert" || activeTab === "compress" || activeTab === "crop" || activeTab === "gif") {
+          if (!isAdvancedMode && selectedPreset) {
+            options.preset = selectedPreset;
+            if (selectedPreset === "podcast") {
+                finalOutputFormat = "mp3";
+                options.audioOnly = true;
+            }
+          } else {
+            options.compression = compressionProfile;
+            options.cropRatio = cropRatio;
+            options.rotate = rotate;
+            if (activeTab === "gif") finalOutputFormat = "gif";
+          }
+        } else if (activeTab === "extract" || activeTab === "audiofx") {
+          finalOutputFormat = audioFormat;
+          options.audioOnly = true;
+          options.audioFx = {
+             volume,
+             fadeIn: fadeIn ? 2 : 0,
+             fadeOut: fadeOut ? 2 : 0,
+             mono: false
+          };
+        } else if (activeTab === "trim") {
+          finalOutputFormat = item.file.name.split(".").pop() || "mp4";
+          options.startTime = startTime;
+          options.endTime = endTime;
+        }
+
+        const result = await convertFile(item.file, finalOutputFormat, options);
+
+        if (result) {
+          setQueue(q => q.map((qItem, idx) => idx === i ? {
+            ...qItem,
+            status: 'done',
+            outputBlob: result.blob,
+            outputFilename: result.filename
+          } : qItem));
+        } else {
+          setQueue(q => q.map((qItem, idx) => idx === i ? { ...qItem, status: 'error', message: "Format not supported or failed" } : qItem));
+        }
+      } catch (err) {
+        setQueue(q => q.map((qItem, idx) => idx === i ? { ...qItem, status: 'error', message: "Unknown error occurred" } : qItem));
       }
-
-      if (result) {
-        const url = URL.createObjectURL(result.blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = result.filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        toast({
-          title: "File ready",
-          description: `${result.filename} (${formatFileSize(result.blob.size)}) has been downloaded.`,
-        });
-      }
-    } catch {
-      toast({
-        title: "Processing error",
-        description: "Something went wrong. Try a different file or format.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessing(false);
     }
+
+    setProcessing(false);
+    toast({
+      title: "Queue Finished",
+      description: "All pending items have been processed.",
+    });
+  };
+
+  const handleDownload = (id: string) => {
+    const item = queue.find(q => q.id === id);
+    if (item && item.outputBlob && item.outputFilename) {
+      const url = URL.createObjectURL(item.outputBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = item.outputFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleRemoveFromQueue = (id: string) => {
+    setQueue(q => {
+        const newQ = q.filter(item => item.id !== id);
+        if (newQ.length === 0) {
+            setFile(null);
+            setFiles([]);
+        }
+        return newQ;
+    });
   };
 
   // Auto-load FFmpeg on mount
@@ -694,71 +742,58 @@ export default function Home() {
                     )}
 
                     {/* Time Range */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between text-xs font-medium mb-2">
                         <span>Start: {formatTime(startTime)}</span>
+                        <Badge variant="outline" className="font-mono bg-background">
+                          Duration: {formatTime(endTime - startTime)}
+                        </Badge>
                         <span>End: {formatTime(endTime)}</span>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground">
-                          Start Time
-                        </label>
+                      <div className="relative pt-6 pb-2">
+                        {/* Dual handle slider */}
                         <Slider
-                          value={[startTime]}
-                          onValueChange={([v]) => {
-                            if (v < endTime) setStartTime(v);
+                          value={[startTime, endTime]}
+                          onValueChange={([start, end]) => {
+                             if (start < end) {
+                                setStartTime(start);
+                                setEndTime(end);
+                                if (videoRef.current) {
+                                   // Sync video preview when adjusting start time
+                                   if (Math.abs(videoRef.current.currentTime - start) > 1) {
+                                      videoRef.current.currentTime = start;
+                                   }
+                                }
+                             }
                           }}
                           max={duration}
                           step={0.1}
-                          data-testid="slider-start"
+                          minStepsBetweenThumbs={0.5}
+                          data-testid="slider-trim"
+                          className="w-full"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground">
-                          End Time
-                        </label>
-                        <Slider
-                          value={[endTime]}
-                          onValueChange={([v]) => {
-                            if (v > startTime) setEndTime(v);
-                          }}
-                          max={duration}
-                          step={0.1}
-                          data-testid="slider-end"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs">
-                        <Badge variant="outline" className="font-mono">
-                          Duration: {formatTime(endTime - startTime)}
-                        </Badge>
-                      </div>
                     </div>
 
-                    <Button
-                      onClick={handleProcess}
-                      disabled={processing || startTime >= endTime}
-                      className="w-full"
-                      data-testid="button-trim"
-                    >
-                      {processing ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Scissors className="w-4 h-4 mr-2" />
-                      )}
-                      {processing ? "Trimming..." : "Trim & Download"}
-                    </Button>
+                    <div className="flex justify-end pt-4 mt-6 border-t">
+                      <Button
+                        onClick={handleProcess}
+                        disabled={queue.length === 0 || processing || startTime >= endTime}
+                        className="w-full sm:w-auto"
+                        data-testid="button-trim"
+                      >
+                        {processing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Scissors className="w-4 h-4 mr-2" />
+                        )}
+                        {processing ? "Processing Trim..." : "Add to Queue & Trim"}
+                      </Button>
+                    </div>
 
-                    {processing && (
-                      <div className="space-y-2">
-                        <Progress value={progress} className="h-2" data-testid="progress-bar-trim" />
-                        <p className="text-xs text-muted-foreground truncate">
-                          {message}
-                        </p>
-                      </div>
-                    )}
+                    <QueueList queue={queue} onRemove={handleRemoveFromQueue} onDownload={handleDownload} />
                   </div>
                 ) : (
                   <div className="text-center py-6">
