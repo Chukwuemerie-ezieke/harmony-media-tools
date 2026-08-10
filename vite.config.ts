@@ -55,7 +55,7 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
-  base: "/harmony-media-tools/",
+  base: "/",
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
@@ -69,8 +69,5 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-  },
-  optimizeDeps: {
-    exclude: ["@ffmpeg/ffmpeg", "@ffmpeg/util"],
   },
 });
