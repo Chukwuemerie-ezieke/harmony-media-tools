@@ -1,7 +1,16 @@
 export interface QueueItem {
   id: string;
-  file: File;
-  status: "pending" | "processing" | "done" | "error";
+  files: File[];
+  tool:
+    | "convert"
+    | "extract"
+    | "trim"
+    | "compress"
+    | "crop"
+    | "audiofx"
+    | "gif"
+    | "merge";
+  status: "idle" | "ready" | "processing" | "complete" | "error";
   progress: number;
   message?: string;
   metadata?: {
@@ -12,4 +21,6 @@ export interface QueueItem {
   outputBlob?: Blob;
   outputFilename?: string;
   overrideSettings?: any;
+  error?: string;
+  createdAt?: number;
 }
