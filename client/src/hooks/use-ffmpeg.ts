@@ -86,8 +86,12 @@ export function useFFmpeg() {
         if (options?.endTime !== undefined) {
           args.push("-to", String(options.endTime));
         }
-        if (options?.audioOnly) {
-          args.push("-vn");
+        // Format-specific encoding config
+        const audioFormats = ["mp3", "wav", "aac", "ogg", "flac", "m4a", "wma"];
+        const isAudioOutput = audioFormats.includes(outputFormat);
+
+        if (options?.audioOnly || isAudioOutput) {
+          if (!args.includes("-vn")) args.push("-vn");
         }
 
         // Apply visual effects like rotation or crop
@@ -143,17 +147,18 @@ export function useFFmpeg() {
            args.push("-vf", vfilters.join(","));
         }
 
+        if (options?.audioFx?.mono) {
+           afilters.push("pan=1c|c0=0.5*c0+0.5*c1");
+        }
         if (afilters.length > 0) {
            args.push("-af", afilters.join(","));
         }
 
-        if (options?.audioFx?.mono) {
-           args.push("-ac", "1");
-        }
+        
 
-        // Format-specific encoding
-        const audioFormats = ["mp3", "wav", "aac", "ogg", "flac", "m4a", "wma"];
-        const isAudioOutput = audioFormats.includes(outputFormat);
+
+
+        
 
         // Add faststart to mp4 for better web playback
         if (outputFormat === "mp4") {
@@ -161,7 +166,7 @@ export function useFFmpeg() {
         }
 
         if (isAudioOutput) {
-          args.push("-vn"); // No video for audio outputs
+          
           if (outputFormat === "mp3") {
             args.push("-codec:a", "libmp3lame", "-q:a", "2");
           } else if (outputFormat === "aac" || outputFormat === "m4a") {

@@ -106,6 +106,7 @@ export default function Home() {
   const [volume, setVolume] = useState(1);
   const [fadeIn, setFadeIn] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
+  const [mono, setMono] = useState(false);
   const [gifFps, setGifFps] = useState(10);
 
 
@@ -201,11 +202,20 @@ export default function Home() {
            volume,
            fadeIn: fadeIn ? 2 : 0,
            fadeOut: fadeOut ? 2 : 0,
-           mono: false
+           mono: mono
         };
+        // pass duration for fadeOut if available
+        if (fadeOut && duration) {
+            options.endTime = duration;
+        }
       } else if (job.tool === "trim") {
         options.startTime = startTime;
         options.endTime = endTime;
+        // Default output to same as input for trim
+        const ext = job.files[0].name.split('.').pop()?.toLowerCase();
+        if (ext && ALL_FORMATS.includes(ext)) {
+            finalOutputFormat = ext;
+        }
       }
 
       if (job.tool === "gif") {
@@ -296,13 +306,13 @@ export default function Home() {
 
           <div className="flex items-center gap-2">
             <Badge
-              variant="secondary"
-              className="hidden sm:flex gap-1 text-xs font-normal"
-              data-testid="status-badge"
-            >
-              <Shield className="w-3 h-3" />
-              {loaded ? "Engine Ready" : loading ? "Loading..." : "Offline"}
-            </Badge>
+            variant="secondary"
+            className="hidden sm:flex gap-1 text-xs font-normal"
+            data-testid="status-badge"
+          >
+            <Shield className="w-3 h-3" />
+            {typeof window !== 'undefined' && !window.crossOriginIsolated ? "Your browser cannot start the media engine securely. Open this tool in an updated version of Chrome or Edge." : loaded ? "Engine Ready" : loading ? "Loading..." : "Offline"}
+          </Badge>
             <Button
               variant="ghost"
               size="icon"
@@ -333,6 +343,12 @@ export default function Home() {
             processed directly in your browser. No uploads, no servers, completely private.
           </p>
         </div>
+
+        {typeof window !== 'undefined' && !window.crossOriginIsolated && (
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4 max-w-5xl mx-auto">
+              Your browser cannot start the media engine securely. Open this tool in an updated version of Chrome or Edge.
+            </div>
+          )}
 
         {/* Tabs */}
         <Tabs
@@ -549,10 +565,15 @@ export default function Home() {
               </Select>
             </div>
 
+            {job && !isVideoFile(job.files[0]) && (
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4">
+                Compression is only supported for video files.
+              </div>
+            )}
             <div className="mt-4 pt-4 border-t">
               <Button
                 onClick={handleProcess}
-                disabled={!job || job?.status === "processing"}
+                disabled={!job || job?.status === "processing" || (job && !isVideoFile(job.files[0]))}
                 className="w-full"
               >
                 {job?.status === "processing" ? (
@@ -560,7 +581,7 @@ export default function Home() {
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {job?.status === "processing" ? "Processing..." : "Start Processing"}
+                {job?.status === "processing" ? "Processing..." : "Convert File"}
               </Button>
 
               
@@ -615,10 +636,15 @@ export default function Home() {
               </Select>
             </div>
 
+            {job && !isVideoFile(job.files[0]) && (
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4">
+                Crop & Rotate are only supported for video files.
+              </div>
+            )}
             <div className="mt-4 pt-4 border-t">
               <Button
                 onClick={handleProcess}
-                disabled={!job || job?.status === "processing"}
+                disabled={!job || job?.status === "processing" || (job && !isVideoFile(job.files[0]))}
                 className="w-full"
               >
                 {job?.status === "processing" ? (
@@ -626,7 +652,7 @@ export default function Home() {
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {job?.status === "processing" ? "Processing..." : "Start Processing"}
+                {job?.status === "processing" ? "Processing..." : "Extract Audio"}
               </Button>
 
               
@@ -657,6 +683,10 @@ export default function Home() {
                 <input type="checkbox" checked={fadeOut} onChange={e => setFadeOut(e.target.checked)} className="rounded border-input bg-background"/>
                 <span className="text-sm">Fade Out (2s)</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={mono} onChange={e => setMono(e.target.checked)} className="rounded border-input bg-background"/>
+                <span className="text-sm">Mono</span>
+              </label>
             </div>
 
             <div className="mt-4 pt-4 border-t">
@@ -670,7 +700,7 @@ export default function Home() {
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {job?.status === "processing" ? "Processing..." : "Start Processing"}
+                {job?.status === "processing" ? "Processing..." : "Trim Media"}
               </Button>
 
               
@@ -692,10 +722,15 @@ export default function Home() {
               />
             </div>
 
+            {job && !isVideoFile(job.files[0]) && (
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4">
+                GIF creation is only supported from video files.
+              </div>
+            )}
             <div className="mt-4 pt-4 border-t">
               <Button
                 onClick={handleProcess}
-                disabled={!job || job?.status === "processing"}
+                disabled={!job || job?.status === "processing" || (job && !isVideoFile(job.files[0]))}
                 className="w-full"
               >
                 {job?.status === "processing" ? (
@@ -703,7 +738,7 @@ export default function Home() {
                 ) : (
                   <Play className="w-4 h-4 mr-2" />
                 )}
-                {job?.status === "processing" ? "Processing..." : "Start Processing"}
+                {job?.status === "processing" ? "Processing..." : "Compress Video"}
               </Button>
 
               
